@@ -1,3 +1,6 @@
 ece342_venv
 __pycache__
 *.pyc
+.DS_Store
+Face-Detection-1
+runs
