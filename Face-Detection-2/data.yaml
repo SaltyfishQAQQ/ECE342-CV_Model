@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['face']
+
+roboflow:
+  workspace: ece342
+  project: face-detection-mik1i-4zino
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/ece342/face-detection-mik1i-4zino/dataset/2
