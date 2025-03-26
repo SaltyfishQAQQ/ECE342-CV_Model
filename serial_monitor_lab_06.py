@@ -7,7 +7,7 @@ from serial import Serial
 from ultralytics import YOLO
 
 PORT = "COM6"
-BAUDRATE = 460800
+BAUDRATE = 115200*4
 
 PREAMBLE = "!START!\r\n"
 DELTA_PREAMBLE = "!DELTA!\r\n"
@@ -16,6 +16,7 @@ SUFFIX = "!END!\r\n"
 ROWS = 144
 COLS = 174
 
+# change the path
 model = YOLO(r"C:\Users\yhlin\ece342\project\ECE342-CV_Model\runs\detect\train6\weights\best.pt")
 
 @click.command()
@@ -147,21 +148,47 @@ def monitor(
                     click.echo("FPS too fast to measure")
             prev_frame_ts = now
             
-            
+
             color_frame = cv.cvtColor(frame, cv.COLOR_GRAY2BGR)
+            color_frame = cv.rotate(color_frame, cv.ROTATE_90_CLOCKWISE)
             results = model(color_frame)  # or model.predict(color_frame)
 
-
-            for result in results:
-                for box in result.boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    conf = float(box.conf[0])
-                    label = f"Face {conf:.2f}"
-                    cv.rectangle(color_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv.putText(color_frame, label, (x1, y1 - 10), cv.FONT_HERSHEY_SIMPLEX, 
-                            0.5, (0, 255, 0), 2)
-                    
+            frame_height, frame_width, _ = color_frame.shape
+            image_center_x = frame_width // 2
+            image_center_y = frame_height // 2
             
+            # Draw a 2x2 square at the center:
+            cv.rectangle(color_frame, (image_center_x, image_center_y), (image_center_x + 1, image_center_y + 1), (0, 0, 255), -1)
+
+
+            
+            for result in results:
+                valid_boxes = [box for box in result.boxes if float(box.conf[0]) >= 0.5]
+                if valid_boxes:
+                    # Choose the detection with the highest confidence
+                    best_box = max(valid_boxes, key=lambda b: float(b.conf[0]))
+                    
+                    x1, y1, x2, y2 = map(int, best_box.xyxy[0].tolist())
+                    
+                    conf = float(best_box.conf[0])
+                    
+                    # Draw the bounding box
+                    cv.rectangle(color_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    
+                    # 3) Compute face box center
+                    face_center_x = (x1 + x2) // 2
+                    face_center_y = (y1 + y2) // 2
+                    
+                    # Draw a dot at the face center
+                    cv.rectangle(color_frame, (face_center_x, face_center_y), (face_center_x + 1, face_center_y + 1), (255, 0, 0), -1)
+                    
+                    dx = face_center_x - image_center_x
+                    dy = face_center_y - image_center_y
+                    
+                    # Print the offset in (x, y) format to the terminal
+                    print(f"Face center offset from image center: ({dx}, {dy})")
+                    
+                    print
                 
 
             cv.namedWindow("Video Stream", cv.WINDOW_KEEPRATIO)
@@ -247,8 +274,7 @@ def decode_rle(raw_data: bytes) -> bytes:
 
 
 def load_raw_frame(raw_data: bytes, rows: int, cols: int) -> np.array:
-    return np.frombuffer(raw_data, dtype=np.uint8).reshape((rows, cols, 1))
-
+    return np.frombuffer(raw_data, dtype=np.uint8).reshape(rows, cols)
 
 if __name__ == "__main__":
     monitor()
